@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Send Harman a project requirement or booking request.">
+  <title>Book | Harman Sodha</title><link rel="stylesheet" href="style.css">
+</head>
+<body class="inner-page">
+  <aside class="mode-rail" aria-label="Site modes"><div class="mode-label">MODE</div><a class="mode-item" href="index.html">HOME</a><a class="mode-item" href="projects.html">PROJECTS</a><a class="mode-item" href="build.html">BUILD</a><a class="mode-item active" href="book.html">BOOK</a></aside>
+  <header class="site-header"><nav class="container nav" aria-label="Main navigation"><a class="brand" href="index.html">HS<span>.</span></a><button class="nav-toggle" aria-label="Open navigation" aria-expanded="false">☰</button><div class="nav-links"><a href="index.html#about">About</a><a href="index.html#skills">Skills</a><a href="projects.html">Projects</a><a href="index.html#contact">Contact</a></div></nav></header>
+  <main>
+    <section class="page-hero book-hero"><div class="container">
+      <p class="section-kicker">BOOK</p><h1>Tell me what you need.</h1>
+      <p class="page-lead">Send your requirements as a note. Add your phone number so I can contact you about the request.</p>
+      <div class="book-grid">
+        <div class="booking-card">
+          <p class="project-type">NEW REQUEST</p><h2>Project requirements</h2>
+          <form id="bookForm">
+            <label for="requesterName">Name</label><input id="requesterName" name="name" type="text" maxlength="160" required placeholder="Your name">
+            <label for="requesterPhone">Phone number</label><input id="requesterPhone" name="phone" type="tel" inputmode="tel" maxlength="25" required placeholder="+91 98765 43210">
+            <label for="requestType">Request type</label><select id="requestType" name="request_type"><option>Project</option><option>Internship</option><option>Collaboration</option><option>Other</option></select>
+            <label for="requirements">Requirements</label><textarea id="requirements" name="requirements" required placeholder="Write everything you need..." rows="12"></textarea>
+            <button class="primary-btn" type="submit">Send requirement</button>
+            <p id="bookStatus" class="form-status" role="status"></p>
+          </form>
+        </div>
+        <div class="booking-card submitted-card"><p class="project-type">CONTACT</p><h2>Need to discuss first?</h2><p class="muted">You can text the developer directly at <a href="tel:+918691953809">+91 86919 53809</a>.</p><hr><p class="project-type">YOUR REQUEST</p><h2>Submitted note</h2><div id="submittedState"><p class="muted">No request submitted yet.</p></div></div>
+      </div>
+    </div></section>
+  </main>
+  <footer class="footer"><div class="container"><p>Harman Sodha made with ❤️</p></div></footer>
+  <script src="js/script.js"></script>
+  <script>
+    const FORM_ENDPOINT = 'https://formsubmit.co/ajax/Harmansodha7@gmail.com';
+    const form = document.getElementById('bookForm');
+    const statusEl = document.getElementById('bookStatus');
+    const stateEl = document.getElementById('submittedState');
+
+    function setStatus(message, ok=false){
+      statusEl.textContent = message;
+      statusEl.className = 'form-status ' + (ok ? 'success' : 'error');
+    }
+    function escapeHtml(v){
+      return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+    }
+    function renderRequest(item){
+      localStorage.setItem('lastBookRequest', JSON.stringify(item));
+      stateEl.innerHTML = `<div class="submitted-note"><p class="project-type">YOU HAVE SENT THIS</p><p class="note-meta">${escapeHtml(item.request_type)} · ${new Date(item.created_at).toLocaleString()}</p><div class="note-body">${escapeHtml(item.requirements).replace(/\n/g,'<br>')}</div><div class="note-actions"><button class="secondary-btn" id="editRequest">Edit</button><button class="danger-btn" id="deleteRequest">Delete</button></div></div>`;
+      document.getElementById('editRequest').onclick=()=>{
+        document.getElementById('requesterName').value=item.name;
+        document.getElementById('requesterPhone').value=item.phone;
+        document.getElementById('requestType').value=item.request_type;
+        document.getElementById('requirements').value=item.requirements;
+        form.scrollIntoView({behavior:'smooth'});
+      };
+      document.getElementById('deleteRequest').onclick=()=>{
+        if(!confirm('Delete this submitted note from this browser?')) return;
+        localStorage.removeItem('lastBookRequest');
+        stateEl.innerHTML='<p class="muted">No request submitted yet.</p>';
+        setStatus('Your local copy was deleted.',true);
+      };
+    }
+    const saved=localStorage.getItem('lastBookRequest');
+    if(saved){ try{renderRequest(JSON.parse(saved));}catch{} }
+
+    form.addEventListener('submit', async e=>{
+      e.preventDefault();
+      setStatus('Sending...');
+      const payload=Object.fromEntries(new FormData(form).entries());
+      try {
+        const body = {
+          name: payload.name,
+          phone: payload.phone,
+          request_type: payload.request_type,
+          requirements: payload.requirements,
+          _subject: `New Book Request — ${payload.request_type}`,
+          _template: 'table',
+          _captcha: 'true',
+          _next: window.location.href
+        };
+        const r=await fetch(FORM_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(body),keepalive:true});
+        const data=await r.json().catch(()=>({}));
+        if(!r.ok || data.success===false) throw new Error(data.message||'Could not send the request.');
+        const item={id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),...payload,created_at:new Date().toISOString()};
+        renderRequest(item);
+        setStatus('Your requirement was sent successfully.',true);
+      } catch(err){
+        setStatus(err.message||'Could not send the request.');
+      }
+    });
+  </script>
+</body></html>
